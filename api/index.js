@@ -7,8 +7,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
-const db = new Database(path.join(__dirname, 'data.db'));
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
+const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.exec(`
 CREATE TABLE IF NOT EXISTS listings (
@@ -74,9 +74,6 @@ app.post('/api/listings', (req, res) => {
   res.status(201).json(created);
 });
 
-
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
-const db = new Database(DB_PATH);
 
 const allowed = (process.env.CORS_ORIGIN || '*').split(',').map(s => s.trim());
 app.use(cors({

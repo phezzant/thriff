@@ -5,21 +5,21 @@ import { listListings } from '../lib/api.js'
 
 // inside map(it => ...):
 <div className="card-body">
-  <h3>{it.title}</h3>
-  <p className="muted">{it.city || '—'}</p>
+  <h3>{item.title}</h3>
+  <p className="muted">{item.city || '—'}</p>
   <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-    <strong>€{(it.price_cents/100).toFixed(2)}</strong>
+    <strong>€{(item.price_cents/100).toFixed(2)}</strong>
     <button
       className="button"
       onClick={async (e) => {
         e.preventDefault(); // keep Link from navigating
-        const old = it.likes ?? 0;
-        it.likes = old + 1; setItems([...items]); // optimistic
-        try { const { likes } = await likeListing(it.id); it.likes = likes; setItems([...items]); }
-        catch { it.likes = old; setItems([...items]); }
+        const old = item.likes ?? 0;
+        item.likes = old + 1; setItems([...items]); // optimistic
+        try { const { likes } = await likeListing(item.id); item.likes = likes; setItems([...items]); }
+        catch { item.likes = old; setItems([...items]); }
       }}
     >
-      ❤ {it.likes ?? 0}
+      ❤ {item.likes ?? 0}
     </button>
   </div>
 </div>
@@ -43,13 +43,13 @@ export default function Home() {
 
   return (
     <div className="grid">
-      {items.map(it => (
-        <Link key={it.id} to={`/listing/${it.id}`} className="card">
-          {it.image_url ? <img src={it.image_url} alt="" /> : <div className="placeholder">No image</div>}
+      {items.map(item => (
+        <Link key={item.id} to={`/listing/${item.id}`} className="card">
+          {item.image_url ? <img src={item.image_url} alt="" /> : <div className="placeholder">No image</div>}
           <div className="card-body">
-            <h3>{it.title}</h3>
-            <p className="muted">{it.city || '—'}</p>
-            <strong>{price(it.price_cents)}</strong>
+            <h3>{item.title}</h3>
+            <p className="muted">{item.city || '—'}</p>
+            <strong>{price(item.price_cents)}</strong>
           </div>
         </Link>
       ))}

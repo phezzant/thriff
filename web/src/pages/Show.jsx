@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getListing } from '../lib/api.js'
-
-import { deleteListing, updateListing } from '../lib/api.js'
+import { getListing, updateListing, deleteListing } from '../lib/api.js'
 
 function AdminBar({ id, onDeleted, onUpdated }) {
   const [token, setToken] = useState(localStorage.getItem('ADMIN_TOKEN') || '');

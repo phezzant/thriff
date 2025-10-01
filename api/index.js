@@ -7,13 +7,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ Use a project-local default first (writable on Render, even on Free)
 const DEFAULT_DB_PATH = path.join(__dirname, 'var', 'data.db');
 const DB_PATH = process.env.DB_PATH || DEFAULT_DB_PATH;
 
-// Only mkdir for non-/data paths (creating /data without a disk would fail with EACCES)
 const dir = path.dirname(DB_PATH);
-fs.mkdirSync(dir, { recursive: true }); // ← create parent folder(s) if missing
+if (!dir.startsWith('/data')) {
+  fs.mkdirSync(dir, { recursive: true });
+}
 
 console.log('[db] Using DB at:', DB_PATH);
 

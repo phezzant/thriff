@@ -2,6 +2,27 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getListing } from '../lib/api.js'
 
+import { deleteListing, updateListing } from '../lib/api.js'
+
+function AdminBar({ id, onDeleted, onUpdated }) {
+  const [token, setToken] = useState(localStorage.getItem('ADMIN_TOKEN') || '');
+  return (
+    <div style={{display:'flex', gap:8, margin:'12px 0'}}>
+      <input
+        placeholder="Admin token"
+        value={token}
+        onChange={e => { setToken(e.target.value); localStorage.setItem('ADMIN_TOKEN', e.target.value); }}
+      />
+      <button className="button" onClick={async () => { await updateListing(id, { status: 'sold' }); onUpdated?.(); }}>
+        Mark sold
+      </button>
+      <button className="button" onClick={async () => { if (confirm('Delete this listing?')) { await deleteListing(id); onDeleted?.(); } }}>
+        Delete
+      </button>
+    </div>
+  )
+}
+
 const price = c => `€${(c/100).toFixed(2)}`
 
 export default function Show() {

@@ -3,6 +3,27 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { listListings } from '../lib/api.js'
 //import './Home.css'
 
+// inside map(it => ...):
+<div className="card-body">
+  <h3>{it.title}</h3>
+  <p className="muted">{it.city || '—'}</p>
+  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+    <strong>€{(it.price_cents/100).toFixed(2)}</strong>
+    <button
+      className="button"
+      onClick={async (e) => {
+        e.preventDefault(); // keep Link from navigating
+        const old = it.likes ?? 0;
+        it.likes = old + 1; setItems([...items]); // optimistic
+        try { const { likes } = await likeListing(it.id); it.likes = likes; setItems([...items]); }
+        catch { it.likes = old; setItems([...items]); }
+      }}
+    >
+      ❤ {it.likes ?? 0}
+    </button>
+  </div>
+</div>
+
 const price = c => `€${(c/100).toFixed(2)}`
 
 export default function Home() {

@@ -7,10 +7,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0"
   },
   "devDependencies": {
@@ -22,5 +22,7 @@
     "start": "node index.js",
     "postinstall": "npm rebuild better-sqlite3 --update-binary"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

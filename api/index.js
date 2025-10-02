@@ -59,23 +59,22 @@ ensureColumn('listings', 'deleted', 'INTEGER NOT NULL DEFAULT 0');     // 0=fals
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.get('/api/listings', (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 20, 100);
-  const page  = Math.max(Number(req.query.page)  || 1, 1);
-  const offset = (page - 1) * limit;
+  const limit = Math.min(Number(req.query.limit) || 12, 100)
+  const page  = Math.max(Number(req.query.page)  || 1, 1)
+  const offset = (page - 1) * limit
 
-  const where = 'WHERE deleted = 0';
+  const where = 'WHERE deleted = 0'
   const items = db.prepare(`
     SELECT id, title, price_cents, image_url, city, created_at, likes, status
     FROM listings
     ${where}
     ORDER BY created_at DESC
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  `).all(limit, offset)
 
-  const total = db.prepare(`SELECT COUNT(*) AS c FROM listings ${where}`).get().c;
-
-  res.json({ items, page, limit, total, pageCount: Math.ceil(total / limit) });
-});
+  const total = db.prepare(`SELECT COUNT(*) AS c FROM listings ${where}`).get().c
+  res.json({ items, page, limit, total, pageCount: Math.ceil(total / limit) })
+})
 
 app.get('/api/listings/:id', (req, res) => {
   const row = db.prepare(`SELECT * FROM listings WHERE id = ? AND deleted = 0`).get(req.params.id);

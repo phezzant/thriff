@@ -18,4 +18,6 @@ nav input { padding: 8px 10px; border: 1px solid var(--border); border-radius: v
 .form { display: flex; flex-direction: column; gap: 12px; max-width: 600px; }
 .form label { display: flex; flex-direction: column; gap: 6px; }
 .form input, .form textarea { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+.button[disabled] { opacity: 0.5; cursor: not-allowed; }
+.pagination a, .pagination button { border-radius: 10px; }
 

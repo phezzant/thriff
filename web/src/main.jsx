@@ -5,6 +5,7 @@ import App from './App.jsx'
 import Home from './pages/Home.jsx'
 import NewListing from './pages/NewListing.jsx'
 import Show from './pages/Show.jsx'
+import Login from './pages/Login.jsx'
 import './index.css'
 
 const router = createBrowserRouter([
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'new', element: <NewListing /> },
       { path: 'listing/:id', element: <Show /> },
+      { path: 'login', element: <Login /> },         // ← add
     ],
   },
 ])

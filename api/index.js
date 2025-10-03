@@ -6,7 +6,12 @@ const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const JWT_SECRET = process.env.JWT_SECRET || '^ss2^JA!3p9c^cu!IG0VO^';
+
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || ''; 
+
 
 function requireAdmin(req, res, next) {
   if (!ADMIN_TOKEN) return res.status(500).json({ error: 'ADMIN_TOKEN not set on server' });
@@ -26,6 +31,8 @@ const dir = path.dirname(DB_PATH);
 if (!dir.startsWith('/data')) {
   fs.mkdirSync(dir, { recursive: true });
 }
+
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 console.log('[db] Using DB at:', DB_PATH);
 
@@ -56,7 +63,27 @@ ensureColumn('listings', 'likes',   'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('listings', 'status',  'TEXT NOT NULL DEFAULT "active"'); // active | sold | hidden
 ensureColumn('listings', 'deleted', 'INTEGER NOT NULL DEFAULT 0');     // 0=false, 1=true
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// Users table (basic)
+db.exec(`
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE,
+  name TEXT,
+  password_hash TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`);
+
+// Add seller_id to listings if missing
+(function ensureSellerId() {
+  const info = db.prepare('PRAGMA table_info(listings)').all();
+  const has = info.some(c => c.name === 'seller_id');
+  if (!has) {
+    db.exec('ALTER TABLE listings ADD COLUMN seller_id INTEGER;');
+    // Optional: backfill existing rows to NULL; new posts will set seller_id
+  }
+})();
 
 app.get('/api/listings', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 12, 100)
@@ -96,7 +123,7 @@ app.get('/api/search', (req, res) => {
   res.json(rows);
 });
 
-app.post('/api/listings', (req, res) => {
+app.post('/api/listings', requireUser, (req, res) => {
   const { title, description, price, imageUrl, city } = req.body;
 
   if (!title || !description || price === undefined) {
@@ -106,14 +133,26 @@ app.post('/api/listings', (req, res) => {
   if (!Number.isFinite(priceCents) || priceCents < 0) {
     return res.status(400).json({ error: 'Invalid price' });
   }
-
   const info = db.prepare(`
-    INSERT INTO listings (title, description, price_cents, image_url, city)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(title, description, priceCents, imageUrl || null, city || null);
+    INSERT INTO listings (title, description, price_cents, image_url, city, seller_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(title, description, priceCents, imageUrl || null, city || null, req.user.id);
 
-  const created = db.prepare(`SELECT * FROM listings WHERE id = ?`).get(info.lastInsertRowid);
+  const created = db.prepare(`
+    SELECT id, title, description, price_cents, image_url, city, created_at, seller_id
+    FROM listings WHERE id = ?
+  `).get(info.lastInsertRowid);
+
   res.status(201).json(created);
+});
+
+app.get('/api/my/listings', requireUser, (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, title, price_cents, image_url, city, created_at, status, likes
+    FROM listings WHERE seller_id = ? AND deleted = 0
+    ORDER BY created_at DESC
+  `).all(req.user.id);
+  res.json(rows);
 });
 
 app.post('/api/listings/:id/like', (req, res) => {
@@ -199,6 +238,62 @@ app.use(cors({
     cb(null, allowed.includes(origin) ? true : new Error('Not allowed by CORS'));
   }
 }));
+
+function makeToken(user) {
+  return jwt.sign({ uid: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+}
+function requireUser(req, res, next) {
+  const hdr = req.get('authorization') || '';
+  const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : '';
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.user = { id: payload.uid, email: payload.email };
+    next();
+  } catch {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+}
+
+// Register (email + password)
+app.post('/api/auth/register', (req, res) => {
+  const { email, password, name } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'email & password required' });
+  const hash = bcrypt.hashSync(String(password), 10);
+  try {
+    const info = db.prepare(
+      'INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)'
+    ).run(String(email).toLowerCase(), name || null, hash);
+    const user = db.prepare('SELECT id, email, name, created_at FROM users WHERE id=?').get(info.lastInsertRowid);
+    const token = makeToken(user);
+    res.status(201).json({ user, token });
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+    throw e;
+  }
+});
+
+// Login
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'email & password required' });
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).toLowerCase());
+  if (!user || !bcrypt.compareSync(String(password), user.password_hash)) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  const publicUser = { id: user.id, email: user.email, name: user.name, created_at: user.created_at };
+  const token = makeToken(publicUser);
+  res.json({ user: publicUser, token });
+});
+
+// Current user
+app.get('/api/me', requireUser, (req, res) => {
+  const user = db.prepare('SELECT id, email, name, created_at FROM users WHERE id=?').get(req.user.id);
+  const counts = db.prepare('SELECT COUNT(*) AS c FROM listings WHERE seller_id = ? AND deleted = 0').get(req.user.id);
+  res.json({ user, stats: { listings: counts.c } });
+});
+
 
 // --- Seed 100+ baby clothing items -----------------------------------------
 app.post('/api/admin/seed/baby', requireAdmin, (req, res) => {
